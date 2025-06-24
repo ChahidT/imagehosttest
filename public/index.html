@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Image Uploader</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+      max-width: 400px;
+      margin: auto;
+    }
+    #real-file {
+      display: none;
+    }
+    #custom-button {
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    #custom-button:hover {
+      background-color: #0056b3;
+    }
+    #custom-text {
+      margin-left: 15px;
+      font-size: 16px;
+      vertical-align: middle;
+    }
+    #upload-result {
+      margin-top: 20px;
+      word-break: break-word;
+      color: green;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+  <h1>Upload your image</h1>
+  <form id="upload-form" enctype="multipart/form-data">
+    <input type="file" id="real-file" name="image" accept="image/*" />
+    <button type="button" id="custom-button">Choose File</button>
+    <span id="custom-text">No file chosen</span>
+    <br /><br />
+    <button type="submit">Upload</button>
+  </form>
+
+  <div id="upload-result"></div>
+
+  <script>
+    const realFileBtn = document.getElementById("real-file");
+    const customBtn = document.getElementById("custom-button");
+    const customTxt = document.getElementById("custom-text");
+    const uploadForm = document.getElementById("upload-form");
+    const uploadResult = document.getElementById("upload-result");
+
+    customBtn.addEventListener("click", () => realFileBtn.click());
+
+    realFileBtn.addEventListener("change", () => {
+      if (realFileBtn.files.length > 0) {
+        customTxt.textContent = realFileBtn.files[0].name;
+      } else {
+        customTxt.textContent = "No file chosen";
+      }
+    });
+
+    uploadForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      if (realFileBtn.files.length === 0) {
+        alert("Please select a file first.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("image", realFileBtn.files[0]);
+
+      try {
+        const res = await fetch("/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) throw new Error("Upload failed");
+
+        const data = await res.json();
+
+        uploadResult.style.color = "green";
+        uploadResult.innerHTML = "Upload successful!<br /><br />";
+
+        // Thumbnail preview
+        const img = document.createElement('img');
+        img.src = data.url;
+        img.alt = "Uploaded Image";
+        img.style.height = '100px';
+        img.style.width = 'auto';
+        uploadResult.appendChild(img);
+
+        const filename = realFileBtn.files[0].name;
+        const directLink = window.location.origin + data.url;
+
+        const formats = {
+          "Direct link": directLink,
+          "Markdown (link)": `[${filename}](${directLink})`
+        };
+
+        function createCopyBlock(label, text) {
+          const container = document.createElement('div');
+          container.style.marginTop = '10px';
+
+          const labelEl = document.createElement('div');
+          labelEl.textContent = label + ":";
+          labelEl.style.fontWeight = 'bold';
+
+          const pre = document.createElement('pre');
+          pre.textContent = text;
+          pre.style.background = "#f0f0f0";
+          pre.style.padding = "8px";
+          pre.style.borderRadius = "5px";
+          pre.style.position = "relative";
+          pre.style.overflowX = "auto";
+
+          const button = document.createElement('button');
+          button.textContent = "Copy";
+          button.style.position = "absolute";
+          button.style.top = "5px";
+          button.style.right = "5px";
+          button.style.padding = "2px 8px";
+          button.style.cursor = "pointer";
+
+          button.addEventListener("click", () => {
+            navigator.clipboard.writeText(text).then(() => {
+              button.textContent = "Copied!";
+              setTimeout(() => (button.textContent = "Copy"), 1500);
+            });
+          });
+
+          const wrapper = document.createElement('div');
+          wrapper.style.position = "relative";
+          wrapper.appendChild(pre);
+          wrapper.appendChild(button);
+
+          container.appendChild(labelEl);
+          container.appendChild(wrapper);
+
+          return container;
+        }
+
+        for (const [label, text] of Object.entries(formats)) {
+          uploadResult.appendChild(createCopyBlock(label, text));
+        }
+      } catch (err) {
+        uploadResult.style.color = "red";
+        uploadResult.textContent = "Upload failed. Please try again.";
+      }
+    });
+  </script>
+</body>
+</html>
